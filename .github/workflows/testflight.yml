@@ -1,0 +1,260 @@
+name: SIXSIXSS TestFlight Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      audit_only:
+        description: "Check required secrets only"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-upload:
+    runs-on: macos-26
+    env:
+      SOURCE_REPO: sixsixss/style-sixth-sense
+      SOURCE_BRANCH: launch/200-person-production-readiness
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_ID_USERNAME: ${{ secrets.APPLE_ID_USERNAME }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 }}
+      APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+      APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+      APPLE_LIVE_ACTIVITY_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_LIVE_ACTIVITY_PROVISIONING_PROFILE_BASE64 }}
+      SOURCE_REPO_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
+      APP_STORE_NUMERIC_ID: "6800018648"
+      MAIN_BUNDLE_ID: "com.sixsixss.sixsixss"
+      LIVE_ACTIVITY_BUNDLE_ID: "com.sixsixss.sixsixss.liveactivity"
+
+    steps:
+      - name: Check required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            SOURCE_REPO_TOKEN
+            APPLE_TEAM_ID
+            APPLE_ID_USERNAME
+            APPLE_APP_SPECIFIC_PASSWORD
+            APPLE_DISTRIBUTION_CERTIFICATE_BASE64
+            APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD
+            APPLE_PROVISIONING_PROFILE_BASE64
+            APPLE_LIVE_ACTIVITY_PROVISIONING_PROFILE_BASE64
+          )
+          missing=()
+          for key in "${required[@]}"; do
+            [[ -n "${!key:-}" ]] || missing+=("$key")
+          done
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "## Missing builder secrets" >> "$GITHUB_STEP_SUMMARY"
+            for key in "${missing[@]}"; do echo "- $key" >> "$GITHUB_STEP_SUMMARY"; done
+            exit 1
+          fi
+          echo "All required builder secrets are present." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop after audit
+        if: inputs.audit_only
+        run: |
+          echo "Secret audit complete. Re-run with audit_only unchecked to build and upload." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clone private SIXSIXSS source
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$SOURCE_BRANCH" \
+            "https://x-access-token:${SOURCE_REPO_TOKEN}@github.com/${SOURCE_REPO}.git" source
+          cd source
+          git remote set-url origin "https://github.com/${SOURCE_REPO}.git"
+          git rev-parse HEAD
+
+      - name: Verify Xcode and install tools
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          command -v fastlane >/dev/null 2>&1 || brew install fastlane
+
+      - name: Prepare native project
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          chmod +x ios-native/scripts/prepare-assets.sh ios-native/scripts/verify-packaged-app.sh
+          ios-native/scripts/prepare-assets.sh
+          cd ios-native
+          xcodegen generate
+
+      - name: Set unique build number
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          BUILD_NO=$((GITHUB_RUN_NUMBER + 2000))
+          echo "BUILD_NO=$BUILD_NO" >> "$GITHUB_ENV"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NO" ios-native/SIXSIXSS/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NO" ios-native/SIXSIXSSLiveActivity/Info.plist
+
+      - name: Install signing material
+        if: ${{ !inputs.audit_only }}
+        id: signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/sixsixss-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+          MAIN_PROFILE_PATH="$RUNNER_TEMP/main.mobileprovision"
+          LIVE_PROFILE_PATH="$RUNNER_TEMP/live.mobileprovision"
+          MAIN_PLIST="$RUNNER_TEMP/main.plist"
+          LIVE_PLIST="$RUNNER_TEMP/live.plist"
+
+          printf '%s' "$APPLE_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+          printf '%s' "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$MAIN_PROFILE_PATH"
+          printf '%s' "$APPLE_LIVE_ACTIVITY_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$LIVE_PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security cms -D -i "$MAIN_PROFILE_PATH" > "$MAIN_PLIST"
+          security cms -D -i "$LIVE_PROFILE_PATH" > "$LIVE_PLIST"
+
+          MAIN_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$MAIN_PLIST")
+          MAIN_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$MAIN_PLIST")
+          MAIN_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$MAIN_PLIST")
+          MAIN_APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$MAIN_PLIST")
+
+          LIVE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$LIVE_PLIST")
+          LIVE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$LIVE_PLIST")
+          LIVE_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$LIVE_PLIST")
+          LIVE_APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$LIVE_PLIST")
+
+          [[ "$MAIN_TEAM" == "$APPLE_TEAM_ID" ]]
+          [[ "$LIVE_TEAM" == "$APPLE_TEAM_ID" ]]
+          [[ "$MAIN_APP_ID" == "${APPLE_TEAM_ID}.${MAIN_BUNDLE_ID}" ]]
+          [[ "$LIVE_APP_ID" == "${APPLE_TEAM_ID}.${LIVE_ACTIVITY_BUNDLE_ID}" ]]
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$MAIN_PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$MAIN_UUID.mobileprovision"
+          cp "$LIVE_PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$LIVE_UUID.mobileprovision"
+
+          echo "main_profile_name=$MAIN_NAME" >> "$GITHUB_OUTPUT"
+          echo "live_profile_name=$LIVE_NAME" >> "$GITHUB_OUTPUT"
+          echo "main_profile_path=$MAIN_PROFILE_PATH" >> "$GITHUB_OUTPUT"
+          echo "live_profile_path=$LIVE_PROFILE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Apply target-specific profiles
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fastlane run update_project_provisioning \
+            xcodeproj:"source/ios-native/SIXSIXSS.xcodeproj" \
+            profile:"${{ steps.signing.outputs.main_profile_path }}" \
+            target_filter:"^SIXSIXSS$" \
+            build_configuration:"Release" \
+            code_signing_identity:"Apple Distribution"
+
+          fastlane run update_project_provisioning \
+            xcodeproj:"source/ios-native/SIXSIXSS.xcodeproj" \
+            profile:"${{ steps.signing.outputs.live_profile_path }}" \
+            target_filter:"^SIXSIXSSLiveActivity$" \
+            build_configuration:"Release" \
+            code_signing_identity:"Apple Distribution"
+
+      - name: Archive SIXSIXSS
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        working-directory: source/ios-native
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project SIXSIXSS.xcodeproj \
+            -scheme SIXSIXSS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/SIXSIXSS.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CURRENT_PROJECT_VERSION="$BUILD_NO" \
+            archive
+
+      - name: Verify archive
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/SIXSIXSS.xcarchive/Products/Applications/SIXSIXSS.app"
+          EXT="$APP/PlugIns/SIXSIXSSLiveActivity.appex"
+          source/ios-native/scripts/verify-packaged-app.sh "$APP"
+          test -d "$EXT"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" == "$MAIN_BUNDLE_ID" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist")" == "$LIVE_ACTIVITY_BUNDLE_ID" ]]
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Export IPA
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>provisioningProfiles</key><dict>
+              <key>${MAIN_BUNDLE_ID}</key><string>${{ steps.signing.outputs.main_profile_name }}</string>
+              <key>${LIVE_ACTIVITY_BUNDLE_ID}</key><string>${{ steps.signing.outputs.live_profile_name }}</string>
+            </dict>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/SIXSIXSS.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+          IPA=$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' -print -quit)
+          test -n "$IPA"
+          echo "IPA_PATH=$IPA" >> "$GITHUB_ENV"
+
+      - name: Validate and upload to TestFlight
+        if: ${{ !inputs.audit_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun altool --validate-app \
+            -f "$IPA_PATH" -t ios \
+            -u "$APPLE_ID_USERNAME" \
+            -p "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --apple-id "$APP_STORE_NUMERIC_ID"
+
+          xcrun altool --upload-app \
+            -f "$IPA_PATH" -t ios \
+            -u "$APPLE_ID_USERNAME" \
+            -p "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --apple-id "$APP_STORE_NUMERIC_ID"
+
+          echo "## TestFlight upload accepted" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload IPA artifact
+        if: ${{ always() && !inputs.audit_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SIXSIXSS-TestFlight-${{ github.run_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: ignore
