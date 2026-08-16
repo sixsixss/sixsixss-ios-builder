@@ -1,0 +1,19 @@
+name: SIXSIXSS Public Runner Check
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-check:
+    runs-on: macos-15
+    steps:
+      - name: Confirm GitHub macOS runner
+        run: |
+          echo "SIXSIXSS public macOS runner is working"
+          sw_vers
+          xcodebuild -version
