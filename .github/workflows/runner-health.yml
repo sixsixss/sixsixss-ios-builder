@@ -1,0 +1,20 @@
+name: Builder Runner Health
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-health:
+    runs-on: macos-26
+    steps:
+      - name: Confirm public macOS runner
+        run: |
+          set -euo pipefail
+          echo "SIXSIXSS public builder runner is online."
+          sw_vers
+          xcodebuild -version
