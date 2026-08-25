@@ -33,7 +33,11 @@ enum SharedStore {
     }
 
     static var mode: String {
-        get { defaults.string(forKey: Key.mode) ?? "chill" }
+        get {
+            let stored = defaults.string(forKey: Key.mode) ?? "auto"
+            if ["chill", "flirt", "funny", "business"].contains(stored) { return "auto" }
+            return stored
+        }
         set { defaults.set(newValue, forKey: Key.mode) }
     }
 }
