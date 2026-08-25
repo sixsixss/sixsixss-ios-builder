@@ -1,0 +1,40 @@
+name: Samba Reply Build Check
+
+on:
+  push:
+    branches: [samba-reply-keyboard-v1]
+    paths:
+      - 'samba-reply/**'
+      - '.github/workflows/samba-reply-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodebuild -version
+
+      - name: Generate project
+        working-directory: samba-reply
+        run: xcodegen generate
+
+      - name: Compile app and extensions for iOS Simulator
+        working-directory: samba-reply
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project SambaReply.xcodeproj \
+            -scheme SambaReplyApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

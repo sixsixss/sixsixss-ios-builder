@@ -1,0 +1,87 @@
+name: SambaReply
+options:
+  bundleIdPrefix: com.sixsixss
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    IPHONEOS_DEPLOYMENT_TARGET: 18.0
+
+targets:
+  SambaReplyApp:
+    type: application
+    platform: iOS
+    sources:
+      - SambaReplyApp
+      - Shared
+    info:
+      path: SambaReplyApp/Info.plist
+      properties:
+        CFBundleDisplayName: Samba Reply
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sixsixss.sambareply
+    entitlements:
+      path: SambaReplyApp/SambaReplyApp.entitlements
+    dependencies:
+      - target: SambaReplyKeyboard
+        embed: true
+      - target: SambaReplyBroadcast
+        embed: true
+
+  SambaReplyKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - SambaReplyKeyboard
+      - Shared
+    info:
+      path: SambaReplyKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: Samba Reply Keyboard
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            RequestsOpenAccess: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sixsixss.sambareply.keyboard
+        APPLICATION_EXTENSION_API_ONLY: YES
+    entitlements:
+      path: SambaReplyKeyboard/SambaReplyKeyboard.entitlements
+
+  SambaReplyBroadcast:
+    type: app-extension
+    platform: iOS
+    sources:
+      - SambaReplyBroadcast
+      - Shared
+    info:
+      path: SambaReplyBroadcast/Info.plist
+      properties:
+        CFBundleDisplayName: Samba Reply Screen Read
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sixsixss.sambareply.broadcast
+        APPLICATION_EXTENSION_API_ONLY: YES
+    entitlements:
+      path: SambaReplyBroadcast/SambaReplyBroadcast.entitlements
+
+schemes:
+  SambaReplyApp:
+    build:
+      targets:
+        SambaReplyApp: all
+        SambaReplyKeyboard: all
+        SambaReplyBroadcast: all
+    run:
+      config: Debug
+    archive:
+      config: Release
