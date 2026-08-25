@@ -1,7 +1,14 @@
 import UIKit
 
 final class KeyboardViewController: UIInputViewController {
-    private let modes = ["chill", "flirt", "funny", "business", "fix"]
+    private let modes: [(id: String, title: String)] = [
+        ("auto", "Reply"),
+        ("short", "Short"),
+        ("direct", "Direct"),
+        ("work", "Work"),
+        ("fix", "Fix")
+    ]
+
     private let suggestionStack = UIStackView()
     private let statusLabel = UILabel()
 
@@ -12,7 +19,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func buildInterface() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .secondarySystemBackground
 
         let root = UIStackView()
         root.axis = .vertical
@@ -27,30 +34,30 @@ final class KeyboardViewController: UIInputViewController {
             root.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -8)
         ])
 
-        let modeRow = UIStackView()
-        modeRow.axis = .horizontal
-        modeRow.spacing = 6
-        modeRow.distribution = .fillProportionally
+        let topRow = UIStackView()
+        topRow.axis = .horizontal
+        topRow.spacing = 6
+        topRow.distribution = .fillProportionally
 
         let globe = button("🌐") { [weak self] in self?.advanceToNextInputMode() }
-        modeRow.addArrangedSubview(globe)
+        topRow.addArrangedSubview(globe)
 
         for item in modes {
-            let title = item == "business" ? "Biz" : item.capitalized
-            modeRow.addArrangedSubview(button(title) { [weak self] in
-                SharedStore.mode = item
-                self?.statusLabel.text = "Mode: \(title)"
-            })
+            let modeButton = button(item.title) { [weak self] in
+                SharedStore.mode = item.id
+                self?.statusLabel.text = item.id == "auto" ? "Ready" : item.title
+                if item.id == "auto" { self?.requestSuggestions() }
+            }
+            if item.id == "auto" {
+                modeButton.configuration = .filled()
+            }
+            topRow.addArrangedSubview(modeButton)
         }
-        root.addArrangedSubview(modeRow)
+        root.addArrangedSubview(topRow)
 
-        let reply = button("✨ Reply") { [weak self] in self?.requestSuggestions() }
-        reply.configuration = .filled()
-        root.addArrangedSubview(reply)
-
-        statusLabel.font = .systemFont(ofSize: 11)
+        statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
         statusLabel.textColor = .secondaryLabel
-        statusLabel.text = "Mode: \(SharedStore.mode.capitalized)"
+        statusLabel.text = "Ready"
         root.addArrangedSubview(statusLabel)
 
         suggestionStack.axis = .vertical
@@ -61,7 +68,7 @@ final class KeyboardViewController: UIInputViewController {
     private func button(_ title: String, action: @escaping () -> Void) -> UIButton {
         var configuration = UIButton.Configuration.gray()
         configuration.title = title
-        configuration.cornerStyle = .medium
+        configuration.cornerStyle = .capsule
         let button = UIButton(configuration: configuration)
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
         return button
@@ -69,18 +76,18 @@ final class KeyboardViewController: UIInputViewController {
 
     private func requestSuggestions() {
         guard hasFullAccess else {
-            statusLabel.text = "Turn on Allow Full Access in iPhone Settings."
+            statusLabel.text = "Full Access required"
             return
         }
 
         let transcript = SharedStore.transcript
         guard !transcript.isEmpty else {
-            statusLabel.text = "Start Screen Read first so I can see the chat."
+            statusLabel.text = "No conversation detected"
             return
         }
 
         guard let url = URL(string: SharedStore.backendURL), !SharedStore.backendURL.isEmpty else {
-            statusLabel.text = "Open Samba Reply and add the backend URL."
+            statusLabel.text = "Open Reply to finish setup"
             return
         }
 
@@ -103,18 +110,18 @@ final class KeyboardViewController: UIInputViewController {
         URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let error {
-                    self.statusLabel.text = "Reply failed: \(error.localizedDescription)"
+                if error != nil {
+                    self.statusLabel.text = "Try again"
                     return
                 }
                 guard let data,
                       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let suggestions = object["suggestions"] as? [String],
                       !suggestions.isEmpty else {
-                    self.statusLabel.text = "The reply service returned no suggestions."
+                    self.statusLabel.text = "No suggestions"
                     return
                 }
-                self.statusLabel.text = "Tap a reply to insert it."
+                self.statusLabel.text = "Tap to insert"
                 self.renderSuggestions(Array(suggestions.prefix(3)))
             }
         }.resume()
@@ -130,7 +137,10 @@ final class KeyboardViewController: UIInputViewController {
             var configuration = UIButton.Configuration.plain()
             configuration.title = text
             configuration.titleAlignment = .leading
+            configuration.cornerStyle = .medium
             let choice = UIButton(configuration: configuration)
+            choice.backgroundColor = .systemBackground
+            choice.layer.cornerRadius = 10
             choice.contentHorizontalAlignment = .leading
             choice.titleLabel?.numberOfLines = 2
             choice.addAction(UIAction { [weak self] _ in self?.insert(text) }, for: .touchUpInside)
@@ -147,9 +157,10 @@ final class KeyboardViewController: UIInputViewController {
 
     private func localFallbacks() -> [String] {
         switch SharedStore.mode {
-        case "flirt": return ["😂 okay I’m holding you to that", "Just let me know when you know", "Cool, I do wanna see you though"]
-        case "funny": return ["😂 fair enough", "Very informative thank you", "I hear you 😭"]
-        case "business": return ["Sounds good, let me know what works for you.", "Perfect, I’ll keep you posted.", "Yeah that works for me."]
+        case "short": return ["Yeah", "Sounds good", "Let me know"]
+        case "direct": return ["Yeah that works for me", "Let me know when you know", "Cool, keep me posted"]
+        case "work": return ["Sounds good, let me know what works for you.", "Perfect, I’ll keep you posted.", "Yeah that works for me."]
+        case "fix": return ["Rewrite what I typed", "Make it clearer", "Keep my tone"]
         default: return ["Yeah that makes sense", "Cool, let me know", "😂 fair enough"]
         }
     }
