@@ -20,9 +20,18 @@ Deno.serve(async (request) => {
     const body = await request.json();
     const conversation = String(body.conversation ?? "").slice(-9000);
     const draft = String(body.draft ?? "").slice(-1500);
-    const mode = String(body.mode ?? "chill");
+    const mode = String(body.mode ?? "auto");
 
-    const instructions = `You write text-message replies for Samba. Keep them short, natural and human. Never sound corporate or like an AI. Do not use hyphens or dashes. Match the energy of the conversation. Give exactly 3 distinct options.\n\nModes:\nchill: relaxed, direct, low effort, confident.\nflirt: playful and interested without sounding needy or oversexual.\nfunny: deadpan, unserious, lightly trollish, natural.\nbusiness: warm, direct, simple, confident.\nfix: rewrite Samba's draft in the same meaning but cleaner and more natural.\n\nReturn only a JSON array of 3 strings. No markdown.`;
+    const instructions = `You write text-message replies for Samba. Keep them short, natural and human. Never sound corporate or like an AI. Do not use hyphens or dashes. Match the energy of the conversation. Give exactly 3 distinct options.
+
+Visible controls are deliberately neutral and private:
+auto: infer the relationship, context, warmth, humour, seriousness and level of interest from the conversation without naming or exposing those categories.
+short: make each option very brief.
+direct: clear, confident and straight to the point.
+work: warm, simple and professional without sounding corporate.
+fix: rewrite Samba's current draft with the same meaning but cleaner and more natural.
+
+When auto is selected, quietly adapt to the real context, including personal, social, romantic, friendly or professional conversation where appropriate. Never output metadata, mode names, relationship labels or explanations. Return only a JSON array of 3 strings. No markdown.`;
 
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
