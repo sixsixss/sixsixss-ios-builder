@@ -20,6 +20,7 @@ targets:
       properties:
         CFBundleDisplayName: Reply
         UILaunchScreen: {}
+        NSFaceIDUsageDescription: "Reply uses Face ID to protect your saved history."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sixsixss.sambareply
@@ -62,7 +63,7 @@ targets:
     info:
       path: SambaReplyBroadcast/Info.plist
       properties:
-        CFBundleDisplayName: Reply Assist
+        CFBundleDisplayName: Reply Context
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler

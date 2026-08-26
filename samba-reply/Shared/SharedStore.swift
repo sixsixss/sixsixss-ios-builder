@@ -12,6 +12,14 @@ enum SharedStore {
         static let transcriptUpdatedAt = "transcriptUpdatedAt"
         static let backendURL = "backendURL"
         static let mode = "replyMode"
+        static let style = "replyStyle"
+        static let onboardingCompleted = "onboardingCompleted"
+        static let contextEnabled = "contextEnabled"
+        static let historyEnabled = "historyEnabled"
+        static let historyExpiryDays = "historyExpiryDays"
+        static let faceIDEnabled = "faceIDEnabled"
+        static let keyboardSeenAt = "keyboardSeenAt"
+        static let historyEntries = "historyEntries"
     }
 
     static var transcript: String {
@@ -35,9 +43,67 @@ enum SharedStore {
     static var mode: String {
         get {
             let stored = defaults.string(forKey: Key.mode) ?? "auto"
-            if ["chill", "flirt", "funny", "business"].contains(stored) { return "auto" }
+            if ReplyMode(rawValue: stored) == nil { return "auto" }
             return stored
         }
         set { defaults.set(newValue, forKey: Key.mode) }
+    }
+
+    /// Overall tone dial from Settings. Independent of the per-tap keyboard mode.
+    static var style: String {
+        get { defaults.string(forKey: Key.style) ?? ReplyStyle.automatic.rawValue }
+        set { defaults.set(newValue, forKey: Key.style) }
+    }
+
+    static var onboardingCompleted: Bool {
+        get { defaults.bool(forKey: Key.onboardingCompleted) }
+        set { defaults.set(newValue, forKey: Key.onboardingCompleted) }
+    }
+
+    /// Off by default. Gates whether the keyboard is allowed to use any
+    /// captured on-screen transcript when building a request.
+    static var contextEnabled: Bool {
+        get { defaults.bool(forKey: Key.contextEnabled) }
+        set {
+            defaults.set(newValue, forKey: Key.contextEnabled)
+            if !newValue { transcript = "" }
+        }
+    }
+
+    /// Off by default.
+    static var historyEnabled: Bool {
+        get { defaults.bool(forKey: Key.historyEnabled) }
+        set { defaults.set(newValue, forKey: Key.historyEnabled) }
+    }
+
+    static var historyExpiryDays: Int {
+        get { defaults.integer(forKey: Key.historyExpiryDays) }
+        set { defaults.set(newValue, forKey: Key.historyExpiryDays) }
+    }
+
+    static var faceIDEnabled: Bool {
+        get { defaults.bool(forKey: Key.faceIDEnabled) }
+        set { defaults.set(newValue, forKey: Key.faceIDEnabled) }
+    }
+
+    /// Set once by the keyboard extension the first time it actually runs,
+    /// so the host app can show a real "Ready" state instead of guessing.
+    static var keyboardSeenAt: Date? {
+        get {
+            let timestamp = defaults.double(forKey: Key.keyboardSeenAt)
+            return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
+        }
+        set { defaults.set(newValue?.timeIntervalSince1970 ?? 0, forKey: Key.keyboardSeenAt) }
+    }
+
+    static func markKeyboardSeen() {
+        defaults.set(Date().timeIntervalSince1970, forKey: Key.keyboardSeenAt)
+    }
+
+    // MARK: History
+
+    static var rawHistoryEntries: Data? {
+        get { defaults.data(forKey: Key.historyEntries) }
+        set { defaults.set(newValue, forKey: Key.historyEntries) }
     }
 }

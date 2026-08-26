@@ -1,16 +1,17 @@
-# Samba Reply keyboard prototype
+# Reply
 
-A native iPhone companion app with a custom keyboard and an on-device screen-text reader.
+A discreet native iPhone keyboard utility (internal codename Samba Reply) with an optional on-device screen-text reader.
 
 ## Flow
 
-1. Start `Samba Reply Screen Read` from the companion app.
-2. Return to Instagram, Messages, WhatsApp or another chat app.
-3. The broadcast extension samples the visible screen and uses Apple Vision OCR on device.
-4. Extracted text is stored in the shared App Group. Screenshots are not uploaded.
-5. Open the Samba Reply keyboard and tap `Reply`.
-6. The keyboard sends the extracted text, current draft and selected mode to the configured backend.
-7. Tap one of the three replies to insert it into the current text field. The user still presses Send.
+1. Open the Reply app, complete onboarding, and add the keyboard in Settings.
+2. Optionally turn on Conversation Context and start it from Settings → Context. It is off by default.
+3. Return to Instagram, Messages, WhatsApp or another chat app.
+4. If Context is running, the broadcast extension samples the visible screen and uses Apple Vision OCR on device.
+5. Extracted text is stored in the shared App Group. Screenshots are not uploaded.
+6. Open the Reply keyboard and tap Reply, Short, Direct, Work or Fix.
+7. The keyboard sends the draft, selected mode/style, and the on-screen text (only if Context is on) to the configured backend.
+8. Tap a suggestion to insert it into the current text field. The user still presses Send.
 
 ## iOS compatibility
 
@@ -49,4 +50,6 @@ xcodebuild -project SambaReply.xcodeproj -scheme SambaReplyApp -sdk iphonesimula
 
 ## Privacy notes
 
-Screen capture is user initiated and visibly indicated by iOS. While it is running, the extension can see the visible screen, not only Instagram. Stop Screen Read when finished. OCR is performed on device. Only extracted text is sent to the configured backend when `Reply` is tapped.
+Conversation Context is off by default. Screen capture is user initiated and visibly indicated by iOS with its own recording indicator — the app never hides or replaces that indicator. While running, the extension can see the visible screen, not only the target chat app. Stop Context when finished. OCR is performed on device. Only extracted text is sent to the configured backend when a reply is generated, and only when Context is enabled.
+
+History is off by default; when enabled it stores only the text that was inserted, never the surrounding conversation, and can be protected with Face ID. The app hides its content whenever it is backgrounded so the app switcher never shows sensitive text.

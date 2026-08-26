@@ -21,22 +21,30 @@ Deno.serve(async (request) => {
     const conversation = String(body.conversation ?? "").slice(-9000);
     const draft = String(body.draft ?? "").slice(-1500);
     const mode = String(body.mode ?? "auto");
+    const style = String(body.style ?? "automatic");
 
-    const instructions = `You write text-message replies for Samba. Keep them short, natural and human. Never sound corporate or like an AI. Do not use hyphens or dashes. Match the energy of the conversation. Give exactly 3 distinct options.
+    const instructions = `You write text-message replies for Samba. Keep them short, natural and human. Never sound corporate or like an AI. Do not use hyphens or dashes. Give exactly 3 distinct options.
+
+Read the whole conversation, not just the last line. If the other person asked a question, answer it directly before adding anything else. Match the energy and pacing of the conversation so far.
 
 Visible controls are deliberately neutral and private:
 auto: infer the relationship, context, warmth, humour, seriousness and level of interest from the conversation without naming or exposing those categories.
 short: make each option very brief.
 direct: clear, confident and straight to the point.
 work: warm, simple and professional without sounding corporate.
-fix: rewrite Samba's current draft with the same meaning but cleaner and more natural.
+fix: rewrite Samba's current draft with the same meaning but cleaner and more natural. Ignore the conversation for tone and just improve the draft.
+
+STYLE is a quiet overall dial, independent of mode:
+automatic: no additional bias, read the room.
+natural: lean warmer and more conversational.
+direct: lean brief and to the point.
 
 When auto is selected, quietly adapt to the real context, including personal, social, romantic, friendly or professional conversation where appropriate. Never output metadata, mode names, relationship labels or explanations. Return only a JSON array of 3 strings. No markdown.`;
 
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
       instructions,
-      input: `MODE: ${mode}\n\nVISIBLE CONVERSATION:\n${conversation}\n\nCURRENT DRAFT:\n${draft}`,
+      input: `MODE: ${mode}\nSTYLE: ${style}\n\nVISIBLE CONVERSATION:\n${conversation}\n\nCURRENT DRAFT:\n${draft}`,
     });
 
     const raw = response.output_text.trim();
