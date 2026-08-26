@@ -16,6 +16,7 @@ struct OnboardingView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .opacity(page == lastPage ? 0 : 1)
+                    .disabled(page == lastPage)
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
