@@ -76,13 +76,13 @@ final class KeyboardViewController: UIInputViewController {
 
     private func requestSuggestions() {
         guard hasFullAccess else {
-            statusLabel.text = "Full Access required"
+            statusLabel.text = "Open Reply to finish setup"
             return
         }
 
         let transcript = SharedStore.transcript
         guard !transcript.isEmpty else {
-            statusLabel.text = "No conversation detected"
+            statusLabel.text = "Ready"
             return
         }
 
@@ -118,7 +118,7 @@ final class KeyboardViewController: UIInputViewController {
                       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let suggestions = object["suggestions"] as? [String],
                       !suggestions.isEmpty else {
-                    self.statusLabel.text = "No suggestions"
+                    self.statusLabel.text = "Ready"
                     return
                 }
                 self.statusLabel.text = "Tap to insert"
