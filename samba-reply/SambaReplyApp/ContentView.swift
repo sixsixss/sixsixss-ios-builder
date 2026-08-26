@@ -11,7 +11,6 @@ struct ContentView: View {
 
     @State private var backendURL = SharedStore.backendURL
     @State private var mode = SharedStore.mode
-    @State private var transcript = SharedStore.transcript
     @State private var saved = false
     @State private var showAdvanced = false
 
@@ -26,28 +25,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    statusCard
-
-                    GroupBox("Keyboard") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label("Add Reply in iPhone Keyboard settings", systemImage: "keyboard")
-                            Text("Settings → General → Keyboard → Keyboards → Add New Keyboard → Reply. Turn on Full Access so it can request replies when you tap Reply.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    GroupBox("Screen Read") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Start only when you want the current conversation read. iPhone will always show when screen capture is active.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            BroadcastPicker()
-                                .frame(width: 54, height: 54)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    readyCard
 
                     GroupBox("Reply style") {
                         VStack(alignment: .leading, spacing: 12) {
@@ -58,7 +36,7 @@ struct ContentView: View {
                             }
                             .pickerStyle(.menu)
 
-                            Text("Auto quietly works out the right tone from the conversation. Personal context is never shown as a label on the keyboard.")
+                            Text("Auto quietly chooses the right tone from context. Personal labels are never shown on the keyboard.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
 
@@ -67,6 +45,42 @@ struct ContentView: View {
                                 saved = true
                             }
                             .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    GroupBox("Keyboard") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Add Reply in iPhone Keyboard settings", systemImage: "keyboard")
+                            Text("Settings → General → Keyboard → Keyboards → Add New Keyboard → Reply. Turn on Full Access so it can request suggestions when you tap Reply.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    GroupBox("Assist") {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.secondary.opacity(0.10))
+                                    .frame(width: 46, height: 46)
+                                Image(systemName: "circle.grid.2x2.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Optional")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Use only when you want extra context")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            BroadcastPicker()
+                                .frame(width: 44, height: 44)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -90,9 +104,9 @@ struct ContentView: View {
 
                     GroupBox("Privacy") {
                         VStack(alignment: .leading, spacing: 8) {
-                            Label("Nothing is sent until you tap Reply", systemImage: "lock.fill")
-                            Label("Visible chat text is extracted on your phone", systemImage: "iphone")
-                            Label("You always review the reply before sending", systemImage: "checkmark.circle")
+                            Label("Nothing runs unless you choose it", systemImage: "lock.fill")
+                            Label("You always review text before sending", systemImage: "checkmark.circle")
+                            Label("No personal mode names appear on screen", systemImage: "eye.slash")
                         }
                         .font(.footnote)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,7 +118,7 @@ struct ContentView: View {
         }
     }
 
-    private var statusCard: some View {
+    private var readyCard: some View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14)
@@ -118,17 +132,12 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Ready")
                     .font(.headline)
-                Text(transcript.isEmpty ? "Start Screen Read when you need it" : "Conversation detected")
+                Text("Open your keyboard whenever you need it")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
-
-            Button("Refresh") {
-                transcript = SharedStore.transcript
-            }
-            .font(.footnote.weight(.semibold))
         }
         .padding(16)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
