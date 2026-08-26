@@ -18,7 +18,7 @@ targets:
     info:
       path: SambaReplyApp/Info.plist
       properties:
-        CFBundleDisplayName: Samba Reply
+        CFBundleDisplayName: Reply
         UILaunchScreen: {}
     settings:
       base:
@@ -40,7 +40,7 @@ targets:
     info:
       path: SambaReplyKeyboard/Info.plist
       properties:
-        CFBundleDisplayName: Samba Reply Keyboard
+        CFBundleDisplayName: Reply
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
@@ -62,7 +62,7 @@ targets:
     info:
       path: SambaReplyBroadcast/Info.plist
       properties:
-        CFBundleDisplayName: Samba Reply Screen Read
+        CFBundleDisplayName: Reply Assist
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
