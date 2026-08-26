@@ -5,8 +5,30 @@ const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 const headers = {
   "content-type": "application/json",
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type, x-reply-client-key",
 };
+
+/**
+ * Best-effort request throttle. Resets whenever this function instance cold
+ * starts and is not shared across concurrent instances, so it is a first
+ * line of defence against a runaway client, not a real distributed rate
+ * limiter. Fine for a single-user personal app; would need a durable store
+ * (e.g. Supabase Postgres or Deno KV) to hold up under real abuse.
+ */
+const requestLog = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20;
+
+function isRateLimited(clientId: string): boolean {
+  const now = Date.now();
+  const entry = requestLog.get(clientId);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    requestLog.set(clientId, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX;
+}
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers });
@@ -14,6 +36,22 @@ Deno.serve(async (request) => {
 
   if (!Deno.env.get("OPENAI_API_KEY")) {
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY is not configured" }), { status: 500, headers });
+  }
+
+  // A configured REPLY_CLIENT_KEY secret gates this function so it is not
+  // fully open on the public internet. Optional so the function still works
+  // before the secret is first set, but should always be set in production.
+  const expectedKey = Deno.env.get("REPLY_CLIENT_KEY");
+  if (expectedKey) {
+    const providedKey = request.headers.get("x-reply-client-key");
+    if (providedKey !== expectedKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+    }
+  }
+
+  const clientId = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(clientId)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), { status: 429, headers });
   }
 
   try {

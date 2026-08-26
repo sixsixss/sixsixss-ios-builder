@@ -27,7 +27,9 @@ All three use App Group `group.com.sixsixss.sambareply`.
 
 ## Backend
 
-`backend/supabase/functions/samba-reply/index.ts` is a Supabase Edge Function. Set `OPENAI_API_KEY` as a Supabase secret and deploy the function. Put the resulting function URL in the companion app. Never ship the OpenAI API key in the iPhone app or keyboard extension.
+`backend/supabase/functions/samba-reply/index.ts` is a Supabase Edge Function. Set `OPENAI_API_KEY` as a Supabase secret and deploy the function. Put the resulting function URL in the companion app under Settings → Advanced. Never ship the OpenAI API key in the iPhone app or keyboard extension.
+
+Also set a `REPLY_CLIENT_KEY` secret (any long random string) and enter the same value in the app under Settings → Advanced → Client key. The function checks this on every request so it is not fully open on the public internet — without it set, the function still works but accepts requests from anyone who finds the URL. The function also applies a best-effort per-instance rate limit; it is not a durable distributed limiter, so treat it as a first line of defence, not a guarantee.
 
 ## Apple Developer setup before installing on a real iPhone
 

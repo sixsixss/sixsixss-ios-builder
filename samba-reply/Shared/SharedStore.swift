@@ -11,6 +11,7 @@ enum SharedStore {
         static let transcript = "latestTranscript"
         static let transcriptUpdatedAt = "transcriptUpdatedAt"
         static let backendURL = "backendURL"
+        static let clientKey = "clientKey"
         static let mode = "replyMode"
         static let style = "replyStyle"
         static let onboardingCompleted = "onboardingCompleted"
@@ -35,9 +36,33 @@ enum SharedStore {
         return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
     }
 
+    /// How long a captured on-screen transcript stays usable before it is
+    /// treated as stale. Context should be cleared quickly, not held
+    /// indefinitely in case a broadcast is never explicitly stopped.
+    private static let transcriptFreshWindow: TimeInterval = 10 * 60
+
+    /// The captured transcript, or empty if it is older than the fresh
+    /// window. Callers should read this instead of `transcript` directly
+    /// when deciding what context to send.
+    static var freshTranscript: String {
+        guard let updatedAt = transcriptUpdatedAt,
+              Date().timeIntervalSince(updatedAt) <= transcriptFreshWindow else {
+            return ""
+        }
+        return transcript
+    }
+
     static var backendURL: String {
         get { defaults.string(forKey: Key.backendURL) ?? "" }
         set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.backendURL) }
+    }
+
+    /// A shared secret sent with every backend request so the function is not
+    /// fully open on the public internet. Configured post-install, never
+    /// hard-coded in source, matching how `backendURL` is handled.
+    static var clientKey: String {
+        get { defaults.string(forKey: Key.clientKey) ?? "" }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.clientKey) }
     }
 
     static var mode: String {
@@ -105,5 +130,17 @@ enum SharedStore {
     static var rawHistoryEntries: Data? {
         get { defaults.data(forKey: Key.historyEntries) }
         set { defaults.set(newValue, forKey: Key.historyEntries) }
+    }
+
+    /// Erases everything Reply has captured or saved: the current on-screen
+    /// transcript and all saved history. Turns Context and History back off
+    /// since there is nothing left for them to use. Leaves app configuration
+    /// (backend URL, style preference, onboarding state) untouched — this
+    /// deletes data, not settings.
+    static func deleteAllUserData() {
+        transcript = ""
+        rawHistoryEntries = nil
+        historyEnabled = false
+        contextEnabled = false
     }
 }

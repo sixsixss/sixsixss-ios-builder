@@ -64,7 +64,7 @@ struct OnboardingView: View {
         OnboardingPage(
             symbol: "switch.2",
             title: "Turn on the keyboard",
-            message: "Settings → General → Keyboard → Keyboards → Add New Keyboard → Reply."
+            message: "Settings → General → Keyboard → Keyboards → Add New Keyboard → Reply. Reply sits alongside your normal keyboard — tap the globe icon anytime to switch back to typing."
         ) {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {

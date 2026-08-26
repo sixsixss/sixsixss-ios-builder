@@ -34,6 +34,12 @@ struct KeyboardSettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Text("Reply is a suggestion keyboard, not a full typing replacement. Tap the globe icon anytime to switch back to your normal keyboard.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .navigationTitle("Keyboard")
         .navigationBarTitleDisplayMode(.inline)

@@ -22,13 +22,17 @@ enum ReplyRequestError: Error, Equatable {
 /// device — every request goes through the Supabase edge function.
 enum ReplyAPIClient {
     static func requestReplies(conversation: String, draft: String, mode: String, style: String) async throws -> [String] {
-        guard let url = URL(string: SharedStore.backendURL), !SharedStore.backendURL.isEmpty else {
+        guard let url = URL(string: SharedStore.backendURL), !SharedStore.backendURL.isEmpty,
+              url.scheme?.lowercased() == "https" else {
             throw ReplyRequestError.notConfigured
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if !SharedStore.clientKey.isEmpty {
+            request.setValue(SharedStore.clientKey, forHTTPHeaderField: "x-reply-client-key")
+        }
         request.timeoutInterval = 15
 
         let payload: [String: Any] = [

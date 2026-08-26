@@ -42,7 +42,7 @@ final class KeyboardBridge: ObservableObject {
         isLoading = true
         statusText = "Thinking…"
 
-        let conversation = SharedStore.contextEnabled ? SharedStore.transcript : ""
+        let conversation = SharedStore.contextEnabled ? SharedStore.freshTranscript : ""
         let requestMode = mode.rawValue
         let style = SharedStore.style
 
@@ -67,6 +67,12 @@ final class KeyboardBridge: ObservableObject {
         }
     }
 
+    /// A minimal edit affordance so a stray character can be corrected without
+    /// leaving Reply to switch back to the system keyboard.
+    func backspace() {
+        deleteBackward()
+    }
+
     func choose(_ suggestion: String) {
         if mode == .fix {
             let draft = currentDraft()
@@ -76,6 +82,9 @@ final class KeyboardBridge: ObservableObject {
         HistoryStore.record(mode: mode.rawValue, text: suggestion)
         suggestions = []
         statusText = "Ready"
+        // The reply is in — the captured context that produced it has served
+        // its purpose and should not linger for reuse.
+        if SharedStore.contextEnabled { SharedStore.transcript = "" }
     }
 
     /// Called when the user moves to a different field or app, or keeps

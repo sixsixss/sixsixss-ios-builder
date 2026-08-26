@@ -15,6 +15,15 @@ struct KeyboardRootView: View {
                 .buttonStyle(.plain)
                 .background(Color(.tertiarySystemFill), in: Circle())
 
+                Button(action: bridge.backspace) {
+                    Image(systemName: "delete.left")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.plain)
+                .background(Color(.tertiarySystemFill), in: Circle())
+
                 ForEach(ReplyMode.allCases) { mode in
                     modeChip(mode)
                 }

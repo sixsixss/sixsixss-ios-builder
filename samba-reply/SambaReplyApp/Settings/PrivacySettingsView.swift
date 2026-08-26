@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PrivacySettingsView: View {
     @State private var faceIDEnabled = SharedStore.faceIDEnabled
+    @State private var showDeleteConfirm = false
+    @State private var deleted = false
     private let biometricsAvailable = BiometricAuth.isAvailable
 
     var body: some View {
@@ -25,8 +27,31 @@ struct PrivacySettingsView: View {
                 Label("The OpenAI key never lives on this device", systemImage: "key.slash")
             }
             .font(.subheadline)
+
+            Section {
+                Button(deleted ? "Data Deleted" : "Delete My Data", role: .destructive) {
+                    showDeleteConfirm = true
+                }
+                .disabled(deleted)
+            } footer: {
+                Text("Erases your saved history and any captured on-screen context stored on this device. This does not remove the Reply keyboard or reset your preferences.")
+            }
         }
         .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Delete all your Reply data?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete My Data", role: .destructive) {
+                SharedStore.deleteAllUserData()
+                HistoryStore.clearAll()
+                deleted = true
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone.")
+        }
     }
 }
